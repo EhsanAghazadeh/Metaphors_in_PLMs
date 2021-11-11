@@ -1,2 +1,2 @@
-# metaphors_dataset
-This repo contains several metaphor datasets from different sources.
+# paper_scripts_data
+This repo contains codes implemented for the submitted paper and also its relevant data.
