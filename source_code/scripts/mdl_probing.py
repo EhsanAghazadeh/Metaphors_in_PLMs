@@ -1036,7 +1036,7 @@ class Trainer(ABC):
 
     def save_history(self, history_dict, mdl=False):
         if mdl == True:
-            prefix = "mdl/mdl_results_"
+            prefix = "mdl_results/mdl_"
             history_dict = {"mdl_history": history_dict}
         else:
             prefix = "edge_probing_results/"
