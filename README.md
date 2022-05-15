@@ -17,7 +17,7 @@ An online colab notebook is available at [Metaphor_Demo.ipynb](Metaphor_Demo.ipy
 
 You can run the probings by running the following command:
 ```
-python3 {EDGE_CODE_PATH/MDL_CODE_PATH} {MODEL_NAME} {TASK} {SEED}
+python3 {EDGE_CODE_PATH/MDL_CODE_PATH} {MODEL_NAME} {TASK_NAME} {SEED}
 ```
 Example:
 ```
