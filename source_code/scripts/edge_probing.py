@@ -22,7 +22,6 @@ import random
 import pickle
 import datasets
 import copy
-from copy import deepcopy
 import sys
 
 print(torch.__version__)
@@ -43,8 +42,8 @@ LEARNING_RATE = 5e-5
 DEVICE = 'cuda' if torch.cuda.is_available() else "cpu"
 
 CACHE_LEN = 500
-GPU_CACHE_LEN = 600  # 600
-RAM_CACHE_LEN = 1500  # 2000
+GPU_CACHE_LEN = 200  # 600
+RAM_CACHE_LEN = 400  # 2000
 
 print(DEVICE)
 
@@ -54,7 +53,7 @@ dataset_info_dict = {
     "ner": Dataset_info("ner", num_of_spans=1),
     "srl": Dataset_info("srl", num_of_spans=2),
     "coref": Dataset_info("coref", num_of_spans=2),
-    "semeval": Dataset_info("semeval", num_of_spans=2, ignore_classes=["Other"]),
+    "semeval": Dataset_info("semeval", num_of_spans=2),
     "dpr": Dataset_info("dpr", num_of_spans=2),
     "vua_verb": Dataset_info("vua_verb", num_of_spans=1),
     "vua_pos": Dataset_info("vua_pos", num_of_spans=1),
@@ -64,42 +63,22 @@ dataset_info_dict = {
     "lcc_es": Dataset_info("lcc_es", num_of_spans=1),
     "lcc_ru": Dataset_info("lcc_ru", num_of_spans=1),
     "lcc_en_fa": Dataset_info("lcc_en_fa", num_of_spans=1),
-    "lcc_en_en": Dataset_info("lcc_en_en", num_of_spans=1),
     "lcc_en_es": Dataset_info("lcc_en_es", num_of_spans=1),
     "lcc_en_ru": Dataset_info("lcc_en_ru", num_of_spans=1),
-    "lcc_es_es": Dataset_info("lcc_es_es", num_of_spans=1),
     "lcc_es_fa": Dataset_info("lcc_es_fa", num_of_spans=1),
     "lcc_es_ru": Dataset_info("lcc_es_ru", num_of_spans=1),
-    "lcc_fa_fa": Dataset_info("lcc_fa_fa", num_of_spans=1),
     "lcc_fa_ru": Dataset_info("lcc_fa_ru", num_of_spans=1),
     "lcc_fa_en": Dataset_info("lcc_fa_en", num_of_spans=1),
     "lcc_fa_es": Dataset_info("lcc_fa_es", num_of_spans=1),
-    "lcc_ru_ru": Dataset_info("lcc_ru_ru", num_of_spans=1),
     "lcc_ru_es": Dataset_info("lcc_ru_es", num_of_spans=1),
     "lcc_ru_fa": Dataset_info("lcc_ru_fa", num_of_spans=1),
     "lcc_ru_en": Dataset_info("lcc_ru_en", num_of_spans=1),
     "lcc_es_en": Dataset_info("lcc_es_en", num_of_spans=1),
-    "lcc-trofi": Dataset_info("lcc-trofi", num_of_spans=1),
-    "trofi-lcc": Dataset_info("trofi-lcc", num_of_spans=1),
-    "vua_pos-lcc": Dataset_info("vua_pos-lcc", num_of_spans=1),
-    "lcc-vua_pos": Dataset_info("lcc-vua_pos", num_of_spans=1),
-    "vua_verb-lcc": Dataset_info("vua_verb-lcc", num_of_spans=1),
-    "lcc-vua_verb": Dataset_info("lcc-vua_verb", num_of_spans=1),
-    "trofi-vua_verb": Dataset_info("trofi-vua_verb", num_of_spans=1),
-    "vua_verb-trofi": Dataset_info("vua_verb-trofi", num_of_spans=1),
-    "vua_pos-trofi": Dataset_info("vua_pos-trofi", num_of_spans=1),
-    "trofi-vua_pos": Dataset_info("trofi-vua_pos", num_of_spans=1),
-    "lcc-lcc": Dataset_info("lcc-lcc", num_of_spans=1),
-    "trofi-trofi": Dataset_info("trofi-trofi", num_of_spans=1),
-    "vua_pos-vua_pos": Dataset_info("vua_pos-vua_pos", num_of_spans=1),
-    "vua_verb-vua_verb": Dataset_info("vua_verb-vua_verb", num_of_spans=1),
-    "vua_verb-vua_pos": Dataset_info("vua_verb-vua_pos", num_of_spans=1),
-    "vua_pos-vua_verb": Dataset_info("vua_pos-vua_verb", num_of_spans=1) 
+    "cross_trofi_vua_verb": Dataset_info("cross_trofi_vua_verb", num_of_spans=1),
 }
 
 model_checkpoint = sys.argv[1]
 my_dataset_info = dataset_info_dict[sys.argv[2]]
-# my_dataset_info_2 = dataset_info_dict[(sys.argv[2]).split('-')[1]]
 SEED = int(sys.argv[3])
 
 SEQ2SEQ_MODEL = "t5" in model_checkpoint or "pegasus" in model_checkpoint or "bart" in model_checkpoint
@@ -119,9 +98,6 @@ else:
     tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, add_prefix_space=True)
     tokenizer.padding_side = 'right'
     model = AutoModel.from_pretrained(model_checkpoint)
-
-# model.save_pretrained(model_checkpoint)
-# tokenizer.save_pretrained(model_checkpoint)
 
 class Utils:
     def one_hot(idx, length):
@@ -197,29 +173,29 @@ class Dataset_handler:
             self.json_to_dataset('./edge-probing-datasets/toxicity/jigsaw_bias/test100.json', data_type="test", fraction = test_frac)
         elif dataset_info.dataset_name == "vua_verb":
             frac = 1
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_verb/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_verb/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_verb/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/vua/verb_train.json', data_type="train", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/vua/verb_test.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/vua/verb_test.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "vua_pos":
             frac = 1
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_pos/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_pos/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_pos/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/vua/pos_train.json', data_type="train", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/vua/pos_test.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/vua/pos_test.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "trofi":
             frac = 1
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/train.csv', data_type="train", fraction = frac, keep_order=False)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/train.json', data_type="train", fraction = frac, keep_order=False)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/test.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/test.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "trofi_nospan":
             frac = 1
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/train.json', data_type="train", fraction = frac, keep_order=False, to_sentence_span=True)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/test.json', data_type="dev", fraction = 0.01, to_sentence_span=True)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/test.json', data_type="test", fraction = frac, to_sentence_span=True)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/train.json', data_type="train", fraction = frac, keep_order=False, to_sentence_span=True)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/test.json', data_type="dev", fraction = 0.01, to_sentence_span=True)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/test.json', data_type="test", fraction = frac, to_sentence_span=True)
         elif dataset_info.dataset_name == "lcc":
             frac = 1
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/en/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/en/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/en/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_train10_current.json', data_type="train", fraction = 0.43984008)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_src_concept":
             frac = 1
             self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_train10_src_concept_current.json', data_type="train", fraction = frac, ignore_classes = self.dataset_info.ignore_classes)
@@ -242,169 +218,70 @@ class Dataset_handler:
             self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_ru":
             frac = 1
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/ru/ru_train10_current.json', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/ru/ru_test10_current.json', data_type="dev", fraction = 0.01)
-            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/ru/ru_test10_current.json', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc_en_en":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_train10_current.json', data_type="train", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_en_fa":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_train10_current.json', data_type="train", fraction = 0.43984008)
+            # self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_train10_current.json', data_type="train", fraction = 1)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_en_es":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_train10_current.json', data_type="train", fraction = 0.43984008)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_en_ru":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc_es_es":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_train10_current.json', data_type="train", fraction = 0.43984008)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_es_fa":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_train10_current.json', data_type="train", fraction = 0.60313082)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_es_ru":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_train10_current.json', data_type="train", fraction = 0.60313082)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_es_en":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_train10_current.json', data_type="train", fraction = 0.60313082)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_fa_ru":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc_fa_fa":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_train10_current.json', data_type="train", fraction = 0.94571799)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_fa_en":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_train10_current.json', data_type="train", fraction = 0.94571799)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_fa_es":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc_ru_ru":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_train10_current.json', data_type="train", fraction = 0.94571799)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_ru_en":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_train10_current.json', data_type="train", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_ru_es":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_es/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_train10_current.json', data_type="train", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_ru_fa":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_ru/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_fa/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc-trofi":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "trofi-lcc":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc-vua_verb":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_verb-lcc":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc-vua_pos":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_pos-lcc":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_pos-trofi":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "trofi-vua_pos":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_verb-trofi":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "trofi-vua_verb":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc-lcc":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/lcc/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "trofi-trofi":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/trofi/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_verb-vua_verb":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_pos-vua_pos":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_pos-vua_verb":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "vua_verb-vua_pos":
-            frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_verb/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_dataset/vua_pos/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_train10_current.json', data_type="train", fraction = frac)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/fa/fa_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "cross_trofi_vua_verb":
             frac = 1
             self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/train.json', data_type="train", fraction = frac)
@@ -508,23 +385,16 @@ class Dataset_handler:
         return tokenized_one_hot_dataset
 
     # Preprocesses
-    def lcc_preprocess(self, target, instance, json_path):
-        # if "lcc" in self.dataset_info.dataset_name.split('-')[0] and "src" not in self.dataset_info.dataset_name:
-        if "lcc" in json_path:    
+    def lcc_preprocess(self, target, instance):
+        if "lcc" in self.dataset_info.dataset_name and "src" not in self.dataset_info.dataset_name:
             target["label"] = float(target["label"])
             if 0.0 <= target["label"] < 0.5:
-                # target["label"] = "Non-metaphor"
-                target["label"] = 0
+                target["label"] = "Non-metaphor"
             elif 1.5 < target["label"] <= 3.0:
-                # target["label"] = "Metaphor"
-                target["label"] = 1
+                target["label"] = "Metaphor"
             else:
                 return None, None
-        if "trofi" in json_path:    
-            if target["label"]=='nonliteral':
-                target["label"] = 1
-            elif target["label"]=='literal':
-                target["label"] = 0
+        return target, instance
     
     def lcc_src_concept_preprocess(self, target, instance):
         if self.dataset_info.dataset_name == "lcc_src_concept":
@@ -537,6 +407,17 @@ class Dataset_handler:
         return target, instance
 
     def hatexplain_preprocess(self, target, instance):
+        # if self.dataset_info.dataset_name == "hatexplain":
+            # span_len = target["span1"][1] - target["span1"][0]
+            # if target["label"] == "Normal":
+            #     hatexplain_distribution_normal[span_len] += 1
+            # else:
+            #     hatexplain_distribution_toxic[span_len] += 1
+            
+            # instance["text"] = re.sub(r'[^A-Za-z0-9 ]+', '', instance["text"])  # Alphanumeric + Space
+            # if True or target["label"] == "Normal":
+            #     e = len(instance["text"].split())
+            #     target["span1"] = [0, e]
         return target, instance
 
     def hatexplain_fullspan_preprocess(self, target, instance):
@@ -616,7 +497,9 @@ def tokenize_and_one_hot(examples, **fn_kwargs):
         tokenized_inputs = cached_tokenized_input[repr(examples["text"])]
     else:
         tokenized_inputs = thread_tokenizer(examples["text"].split(), is_split_into_words=True)  # Must be splitted for tokenizer to word_ids works fine. (test e-mail!)
+        # cached_tokenized_input = {}  # Free For RAM (Just Last One Cached)
         cached_tokenized_input[repr(examples["text"])] = tokenized_inputs
+    # tokenized_inputs = tokenizer(examples["text"], truncation=True, is_split_into_words=True, padding="max_length", max_length=210)
     def align_span(word_ids, start_word_id, end_word_id):
         span = [0, 0]
         if start_word_id not in word_ids:
@@ -629,10 +512,16 @@ def tokenize_and_one_hot(examples, **fn_kwargs):
         span[1] = len(word_ids) - 1 - word_ids[::-1].index(end_word_id - 1) + 1  # Last occurance (+1 for open range)
         return span
 
+    # tokenized_inputs["span1"] = [0, 0]
+    # tokenized_inputs["span1"][0] = word_ids.index(examples["span1"][0])  # First occurance
+    # tokenized_inputs["span1"][1] = len(word_ids) - 1 - word_ids[::-1].index(examples["span1"][1] - 1) + 1  # Last occurance (+1 for open range)
     word_ids = tokenized_inputs.word_ids()
     tokenized_inputs["span1"] = align_span(word_ids, examples["span1"][0], examples["span1"][1])
     tokenized_inputs["span1_len"] = tokenized_inputs["span1"][1] - tokenized_inputs["span1"][0]
     if num_of_spans == 2:
+        # tokenized_inputs["span2"] = [0, 0]
+        # tokenized_inputs["span2"][0] = word_ids.index(examples["span2"][0])  # First occurance
+        # tokenized_inputs["span2"][1] = len(word_ids) - 1 - word_ids[::-1].index(examples["span2"][1] - 1) + 1  # Last occurance
         tokenized_inputs["span2"] = align_span(word_ids, examples["span2"][0], examples["span2"][1])
         tokenized_inputs["span2_len"] = tokenized_inputs["span2"][1] - tokenized_inputs["span2"][0]
     # One hot
@@ -676,6 +565,12 @@ print(list(stats.index))
 print("|Labels| =", len(stats))
 stats.plot(kind='barh', color="green", figsize=(10, 9));
 
+#  What if Google Morphed Into GoogleOS ? cc 
+# span1: 11 12 ['and']
+# span2: 13 14 ['e']
+# label: cc
+# BUG? 17
+
 """# Edge Probe"""
 
 class SpanRepr(ABC, nn.Module):
@@ -705,6 +600,12 @@ class MaxSpanRepr(SpanRepr, nn.Module):
     """Class implementing the max-pool span representation."""
 
     def forward(self, spans, attention_mask):
+        # TODO: Vectorize this
+        # for i in range(len(attention_mask)):
+        #     for j in range(len(attention_mask[i])):
+        #         if attention_mask[i][j] == 0:
+        #             spans[i, :, j, :] = -1e10
+
         span_masks_shape = attention_mask.shape
         span_masks = attention_mask.reshape(
             span_masks_shape[0],
@@ -715,6 +616,7 @@ class MaxSpanRepr(SpanRepr, nn.Module):
         attention_spans = spans * span_masks - 1e10 * (1 - span_masks)
 
         max_span_repr, max_idxs = torch.max(attention_spans, dim=-2)
+        # print(max_span_repr.shape)
         return max_span_repr
 
 class AttnSpanRepr(SpanRepr, nn.Module):
@@ -726,8 +628,13 @@ class AttnSpanRepr(SpanRepr, nn.Module):
         """
         super(AttnSpanRepr, self).__init__(input_dim, use_proj=use_proj, proj_dim=proj_dim)
         self.use_endpoints = use_endpoints
+        # input_dim is embedding_dim or proj dim
+        # print("input_dim", input_dim)
         self.attention_params = nn.Linear(input_dim, 1)  # Learn a weight for each token: z(k)i = W(k)att e(k)i
         self.last_attention_wts = None
+        # Initialize weight to zero weight
+        # self.attention_params.weight.data.fill_(0)
+        # self.attention_params.bias.data.fill_(0)
 
     def forward(self, spans, attention_mask):
         """ 
@@ -737,6 +644,18 @@ class AttnSpanRepr(SpanRepr, nn.Module):
         returns:
             [32, 13, 256]
         """
+        # if self.use_proj:
+        #     encoded_input = self.proj(encoded_input)
+
+        # span_mask = get_span_mask(start_ids, end_ids, encoded_input.shape[1])
+        # attn_mask = torch.zeros(spans.shape, device=DEVICE)
+        # print(datetime.datetime.now().time(), "a1")
+        # print(attention_mask.shape)
+        # for i in range(len(attention_mask)):
+        #     for j in range(len(attention_mask[i])):
+        #         if attention_mask[i][j] == 0:
+        #             attn_mask[i, :, j, :] = -1e10
+
         span_masks_shape = attention_mask.shape
         span_masks = attention_mask.reshape(
             span_masks_shape[0],
@@ -745,13 +664,33 @@ class AttnSpanRepr(SpanRepr, nn.Module):
             1
         ).expand_as(spans)
         attn_mask = - 1e10 * (1 - span_masks)
+        
+        # print(datetime.datetime.now().time(), "a2")
 
+        # attn_mask = (1 - span_mask) * (-1e10)
         attn_logits = self.attention_params(spans) + attn_mask  # Decreasing the attention of padded spans by -1e10
         attention_wts = nn.functional.softmax(attn_logits, dim=-2)
         attention_term = torch.sum(attention_wts * spans, dim=-2)
 
         self.last_attention_wts = attention_wts   # Save for later analysis
+        
+        # if self.use_endpoints:
+        #     batch_size = encoded_input.shape[0]
+        #     h_start = encoded_input[torch.arange(batch_size), start_ids, :]
+        #     h_end = encoded_input[torch.arange(batch_size), end_ids, :]
+        #     return torch.cat([h_start, h_end, attention_term], dim=1)
+        # else:
+        #     return attention_term
 
+        # print(spans.shape, attn_mask.shape)
+        # print("attn_mask", attn_mask.shape)
+        # print(attn_mask[sidx, :, :, 0:2])
+        # print("attn_logits", attn_logits.shape)
+        # print(attn_logits[sidx])
+        # print("attention_wts", attention_wts.shape)
+        # print(attention_wts[sidx, :, :, 0:2])
+        # print("attention_term", attention_term.shape)
+        # print(attention_term[sidx, :, 0:2])
         return attention_term.float()
 
 def get_span_module(input_dim, method="max", use_proj=False, proj_dim=256):
@@ -796,6 +735,7 @@ class Edge_probe_model(nn.Module):
         ## Projection
         if use_proj:
             # Apply a projection layer to output of pretrained models
+            # print(embedding_dim, num_layers, proj_dim)
             self.proj1 = nn.Linear(embedding_dim, proj_dim)
             if self.num_of_spans == 2:
                 self.proj2 = nn.Linear(embedding_dim, proj_dim)
@@ -832,6 +772,7 @@ class Edge_probe_model(nn.Module):
         if self.num_of_spans == 2:
             span2_reprs = spans_torch_dict["span2"]
             span2_attention_mask = spans_torch_dict["span2_attention_mask"]
+        # print(span1_reprs.shape)
         
         ## Projection
         if self.use_proj:
@@ -844,6 +785,12 @@ class Edge_probe_model(nn.Module):
         if self.num_of_spans == 2:
             pooled_span2 = self.span2_pooling_net(span2_reprs, span2_attention_mask)
 
+        # print(my_dataset_handler.tokenized_dataset["train"][0])
+        # print("SPAN1", span1_reprs[2, :, :, 0:5])
+        # print("SPAN2", span2_reprs[2, :, :, 0:5])
+        # print("MAX1", pooled_span1[2, :, 0:5])
+        # print("MAX2", pooled_span2[2, :, 0:5])
+        # raise "E"
         if self.normalize_layers:
             pooled_span1 = torch.nn.functional.normalize(pooled_span1, dim=-1)
             if self.num_of_spans == 2:
@@ -859,7 +806,11 @@ class Edge_probe_model(nn.Module):
         wtd_encoded_repr = 0
         soft_weight = nn.functional.softmax(self.weighing_params, dim=0)
         for i in range(self.num_layers):
+            # print(i, output[:, i, :].shape, torch.norm(output[:, i, :]), torch.norm(s1))
+            # print(output[:, i, :][0, 0:10])
+            # print(s1[0, 0:10])
             wtd_encoded_repr += soft_weight[i] * output[:, i, :]
+        # wtd_encoded_repr += soft_weight[-1] * encoded_layers[:, -1, :]
         output = wtd_encoded_repr
 
         ## Classification
@@ -879,6 +830,10 @@ class Edge_probe_model(nn.Module):
         if do_print:
             print(summary_str)
         return summary_str
+        # print("Total Parameters:    ", pytorch_total_params)
+        # print("Trainable Parameters:", pytorch_total_params_trainable)
+        # print("Pool Method:", self.pool_method)
+        # print("Projection:", self.use_proj, self.proj_dim)
 
 gpu_cache = dict()
 ram_cache = dict()
@@ -894,6 +849,7 @@ class Trainer(ABC):
         return new_dict
 
     def prepare_batch_data(self, tokenized_dataset, start_idx, end_idx, pad=False, cache_prefix=None):
+        # self.vprint("Extracting From Model")
         if cache_prefix is not None:
             cache_id = f"{cache_prefix}{start_idx}-{end_idx}"
             if cache_id in gpu_cache:
@@ -902,6 +858,7 @@ class Trainer(ABC):
                 return self.span_dict_to_device(ram_cache[cache_id], "cuda")
 
         span_representations_dict = self.extract_embeddings(tokenized_dataset, start_idx, end_idx, pad=True)
+        # self.vprint("To Device")
         span1_torch = torch.stack(span_representations_dict["span1"]).float().to(self.MLP_device)  # (batch_size, #layers, max_span_len, embd_dim)
         span1_attention_mask_torch = torch.stack(span_representations_dict["span1_attention_mask"])
         one_hot_labels_torch = torch.tensor(np.array(span_representations_dict["one_hot_label"]))
@@ -935,6 +892,8 @@ class Trainer(ABC):
         num_layers = span1_torch[0].shape[0]
         span_len = span1_torch[0].shape[1]
         embedding_dim = span1_torch[0].shape[2]
+        # if self.verbose:
+        #     display(pd.DataFrame(span_representations_dict))
         return num_layers, span_len, embedding_dim, len(self.dataset_handler.labels_list)
 
     def pad_span(self, span_repr, max_len):
@@ -949,10 +908,17 @@ class Trainer(ABC):
         num_layers = shape[0]
         span_original_len = shape[1]
         embedding_dim = shape[2]
+        # padded_span_repr = np.zeros((num_layers, max_len, embedding_dim))
+        # if span_original_len > max_len:
+        #     raise Exception(f"Error: {span_original_len} is more than max_span_len {max_len}\n{span_repr.shape}")
+
+        # attention_mask = torch.tensor(np.array([1] * span_original_len + [0] * (max_len - span_original_len)), dtype=torch.int8, device=self.device)
         attention_mask = torch.ones(max_len, dtype=torch.int8, device=self.device)
         attention_mask[span_original_len:] = 0
 
         padded_span_repr = torch.cat((span_repr, torch.zeros((num_layers, max_len - span_original_len, embedding_dim), device=self.device)), axis=1)
+        # assert attention_mask.shape == (max_len, ), f"{attention_mask}, {attention_mask.shape} != ({max_len}, )"
+        # assert padded_span_repr.shape == (num_layers, max_len, embedding_dim)
         return padded_span_repr, attention_mask
 
     def init_span_dict(self, num_of_spans, pad):
@@ -971,12 +937,14 @@ class Trainer(ABC):
         embedding_dim = word_embedding.word_vectors.shape[-1]
         span_len = span_end - span_start
         hidden_states = torch.zeros(1, span_len, embedding_dim, device=self.device)  #(layers, span_len, embedding_dim)
+        # print(text[0:3])
         for i in range(span_len):
             word = text[span_start + i]
             if word in word_embedding.dictionary:
                 hidden_states[0, i, :] = torch.tensor(word_embedding.word_vectors[word_embedding.dictionary[word]], device=self.device)
             else:
                 pass
+                # print("UNKONW WORD:", word)
         return hidden_states
 
     def extract_elmo(self, tokenized_dataset, idx, span_start, span_end):
@@ -986,11 +954,18 @@ class Trainer(ABC):
 
 
     def extract_batch(self, tokenized_dataset, idx, unique_batch_size=32):
-        # self.vprint("e1")
+        # if "glove" in model_checkpoint:
+        #     return extract_batch_glove(tokenized_dataset, idx, unique_batch_size)
+        # if "elmo" in model_checkpoint:
+        #     return extract_batch_elmo(tokenized_dataset, idx, unique_batch_size)
+
+        # print(idx)
+        self.vprint("e1")
         dataset_len = len(tokenized_dataset)
         unique_texts_in_batch = []
         i = idx
         while len(unique_texts_in_batch) < unique_batch_size and i < dataset_len:
+            # print(i)
             text = tokenized_dataset[i]["text"]
             if not text in unique_texts_in_batch:
                 unique_texts_in_batch.append(text)
@@ -1002,12 +977,15 @@ class Trainer(ABC):
                 outputs = self.language_model(input_ids=tokenized_batch.input_ids, decoder_input_ids=tokenized_batch.input_ids, output_hidden_states=True)
             else:
                 outputs = self.language_model(**tokenized_batch)
+        # torch.cuda.synchronize()
+        # current_hidden_states = np.asarray([val.detach().cpu().numpy() for val in outputs.hidden_states])
         if SEQ2SEQ_MODEL:
             encoder_hidden_states = torch.stack([val.detach() for val in outputs.encoder_hidden_states])
             decoder_hidden_states = torch.stack([val.detach() for val in outputs.decoder_hidden_states])
             current_hidden_states = torch.cat((encoder_hidden_states, decoder_hidden_states), dim=0)  # concat from layers
         else:
             current_hidden_states = torch.stack([val.detach() for val in outputs.hidden_states])
+        # self.vprint(current_hidden_states.shape)  # (13, 16, 34, 768)
         
         extracted_batch_embeddings = {}
         for i, unique_text in enumerate(unique_texts_in_batch):
@@ -1038,6 +1016,7 @@ class Trainer(ABC):
             max_span_len_in_batch = max(max(tokenized_dataset[start_idx:end_idx]["span1_len"]), max(tokenized_dataset[start_idx:end_idx]["span2_len"]))
         elif num_of_spans == 1:
             max_span_len_in_batch = max(tokenized_dataset[start_idx:end_idx]["span1_len"])
+        # print("max_span_len_in_batch", max_span_len_in_batch)
         
 
         span_repr = self.init_span_dict(num_of_spans, pad)
@@ -1057,7 +1036,15 @@ class Trainer(ABC):
                 else:
                     if hashable_input not in self.extracted_batch_embeddings:
                         self.extracted_batch_embeddings = self.extract_batch(tokenized_dataset, i)
+                        # if len(self.cached_embeddings) < CACHE_LEN:
+                        #     for key, value in self.extracted_batch_embeddings.items():
+                        #         self.cached_embeddings[key] = value
+                        #     print(f"Cached {len(self.cached_embeddings)}")
                     self.current_hidden_states = self.extracted_batch_embeddings[hashable_input]
+                
+                # if hashable_input not in self.extracted_batch_embeddings:
+                #     self.extracted_batch_embeddings = self.extract_batch(tokenized_dataset, i)    
+                # self.current_hidden_states = self.extracted_batch_embeddings[hashable_input]
 
                 span1_hidden_states = self.current_hidden_states[:, row["span1"][0]:row["span1"][1], :]  # (#layer, span_len, embd_dim)
             
@@ -1089,10 +1076,10 @@ class Trainer(ABC):
 
     def save_history(self, history_dict, mdl=False):
         if mdl == True:
-            prefix = "mdl/mdl_jsons_"
+            prefix = "mdl/mdl_results_"
             history_dict = {"mdl_history": history_dict}
         else:
-            prefix = "edge_probing_results_jsons/"
+            prefix = "edge_probing_results/"
         file_name = prefix + model_checkpoint + "_" + self.dataset_handler.dataset_info.dataset_name + "_" + str(SEED)
         history_dict["Model"] = model_checkpoint,
         history_dict["Batch Size"] = BATCH_SIZE,
@@ -1111,6 +1098,8 @@ class Trainer(ABC):
         Path(file_name).mkdir(parents=True, exist_ok=True)
         with open(f"{file_name}.json", "w") as json_file:
             json.dump(history_dict, json_file, indent=4)
+        # with open(f"{file_name}.pkl", "wb") as pkl_file:
+        #     pickle.dump(history_dict, pkl_file)
 
 """# Edge Probe Trainer"""
 
@@ -1119,8 +1108,7 @@ class Edge_probe_trainer(Trainer):
     def __init__(self, language_model, dataset_handler: Dataset_handler, 
                  verbose=True, device='cuda', edge_probe_model_checkpoint=None,
                  pool_method="attn", start_eval = False, 
-                 history_checkpoint=None, up_to_layer=-1, normalize_layers=False,
-                 patience=5):
+                 history_checkpoint=None, up_to_layer=-1, normalize_layers=False):
         self.dataset_handler = dataset_handler
         self.num_of_spans = self.dataset_handler.dataset_info.num_of_spans
         self.up_to_layer = up_to_layer
@@ -1147,8 +1135,6 @@ class Edge_probe_trainer(Trainer):
         self.language_model.to(self.device)
         num_layers, input_span_len, embedding_dim, num_classes = self.get_language_model_properties()
         self.MLP_device = self.device
-        self.patience = patience
-        self.counter_4_early_stopping = 0
         if edge_probe_model_checkpoint == None:
             print("Creating New EPM")
             self.edge_probe_model = Edge_probe_model(
@@ -1173,8 +1159,7 @@ class Edge_probe_trainer(Trainer):
                                 "micro_f1": {"dev": [], "test": []},
                                 "macro_f1": {"dev": [], "test": []},
                                 "accuracy": {"dev": [], "test": []},
-                                "report": {"dev": [], "test": []},
-                                "f1": {"dev": [], "test": []}
+                                "report": {"dev": [], "test": []}
                             },
 
                             "layers_weights": [],
@@ -1189,11 +1174,14 @@ class Edge_probe_trainer(Trainer):
         tokenized_dataset_dev = self.dataset_handler.tokenized_dataset["dev"]
         tokenized_dataset_test = self.dataset_handler.tokenized_dataset["test"]
 
+        # self.edge_probe_model.to(self.device)
         self.edge_probe_model.to(self.MLP_device)
+        # self.vprint("Counting dataset rows")
         dataset_len = len(tokenized_dataset)
         dev_dataset_len = len(tokenized_dataset_dev)
         test_dataset_len = len(tokenized_dataset_test)
         print(f"Train on {dataset_len} samples, validate on {dev_dataset_len} samples, test on {test_dataset_len} samples")
+        # dataset_len = 60
         if self.start_eval:
             self.update_history(epoch = 0)
 
@@ -1205,12 +1193,19 @@ class Edge_probe_trainer(Trainer):
             self.edge_probe_model.train()
             for i in tqdm(range(0, dataset_len, batch_size), desc=f"[Epoch {epoch + 1}/{epochs}]"):
                 
+                # step_counter += 1
+                # if i > 0 and step_counter > 0 and step_counter % 1000 == 0:
+                #     self.update_history(epoch + 1, train_loss = running_loss / steps)
+                #     self.draw_weights(epoch)
+                
                 self.vprint("Start")
                 step = batch_size
                 if i + batch_size > dataset_len:
                     step = dataset_len - i
+                # print(f"WWW[{i}, {i+step})")
                 
                 self.vprint("Extracting")
+                # self.vprint("prepare")
                 spans_torch_dict = self.prepare_batch_data(tokenized_dataset, i, i + step, pad=True, cache_prefix="t")
                 labels = spans_torch_dict["one_hot_labels"]
                 # zero the parameter gradients
@@ -1218,6 +1213,7 @@ class Edge_probe_trainer(Trainer):
     
                 # forward + backward + optimize
                 self.vprint("Forward MLP")
+                # self.vprint("epm")
                 outputs = self.edge_probe_model(spans_torch_dict)
                 self.vprint("Loss")
                 loss = self.edge_probe_model.training_criterion(outputs.to(self.device), labels.float().to(self.device))
@@ -1228,25 +1224,17 @@ class Edge_probe_trainer(Trainer):
                 running_loss += loss.item()
                 steps += 1
                 self.vprint("Done")
+                
+                
+                if i/batch_size % 50 == 0:
+                    self.update_history(epoch + 1, train_loss = running_loss / steps)
+                    # self.draw_weights(epoch)
+                
+                # print(f"loss: {running_loss / steps}")
+
             self.update_history(epoch + 1, train_loss = running_loss / steps)
+            # self.draw_weights(epoch)
             self.save_history(self.history)
-            if self.check_early_stop():
-                break;
-
-
-    def check_early_stop(self):
-        if len(self.history['loss']['dev']) > 1:
-            if self.history['loss']['dev'][-1] > self.history['loss']['dev'][-2]:
-                self.counter_4_early_stopping += 1
-            if self.history['loss']['dev'][-1] < self.history['loss']['dev'][-2]:
-                self.counter_4_early_stopping = 0
-        
-        print(f"Early Stopping Counter: {self.counter_4_early_stopping}")
-
-        if self.counter_4_early_stopping >= self.patience:
-            return True
-        
-        return False
 
     def calc_loss(self, tokenized_dataset, batch_size=16, print_metrics=False, just_micro=False, desc=""):
         self.edge_probe_model.eval()
@@ -1256,6 +1244,8 @@ class Edge_probe_trainer(Trainer):
             steps = 0
             preds = None
             for i in tqdm(range(0, dataset_len, batch_size), desc=desc):
+                # if int(i / batch_size) % 100 == 0:
+                #     print("memory:", psutil.virtual_memory().percent, gc.collect(), psutil.virtual_memory().percent)
                 step = batch_size
                 if i + batch_size > dataset_len:
                     step = dataset_len - i
@@ -1273,8 +1263,11 @@ class Edge_probe_trainer(Trainer):
                 running_loss += loss.item()
                 steps += 1
 
+        # print(preds[0:4])
         preds = preds.cpu().argmax(-1)
         y_true = np.array(tokenized_dataset["one_hot_label"]).argmax(-1)
+        # print(preds[0:4])
+        # print(y_true[0:4])
         labels_list = self.dataset_handler.labels_list
         if self.dataset_handler.dataset_info.dataset_name == "semeval":
             other_idx = labels_list.index("Other")
@@ -1291,46 +1284,41 @@ class Edge_probe_trainer(Trainer):
         
         
         report = classification_report(y_true, preds, target_names=labels_list, labels=range(len(labels_list)))
-        report_dict = classification_report(y_true, preds, target_names=labels_list, labels=range(len(labels_list)), output_dict=True)
         if print_metrics:
             if not just_micro and desc == "Test Loss":
                 print(report)
             print("MICRO F1:", micro_f1)
-        return running_loss / steps, micro_f1, macro_f1, accuracy, report, report_dict
+        return running_loss / steps, micro_f1, macro_f1, accuracy, report
 
     # Private:
     def update_history(self, epoch, train_loss = None):
         if train_loss is None:
             train_loss, train_f1 = self.calc_loss(self.dataset_handler.tokenized_dataset["train"], print_metrics=True, desc="Train Loss")
-        dev_loss, dev_f1, dev_macro_f1, dev_accuracy, dev_report, dev_report_dict = self.calc_loss(self.dataset_handler.tokenized_dataset["dev"], print_metrics=True, desc="Dev Loss")
-        test_loss, test_f1, test_macro_f1, test_accuracy, test_report, test_report_dict = self.calc_loss(self.dataset_handler.tokenized_dataset["test"], print_metrics=True, desc="Test Loss")
+        dev_loss, dev_f1, dev_macro_f1, dev_accuracy, dev_report = self.calc_loss(self.dataset_handler.tokenized_dataset["dev"], print_metrics=True, desc="Dev Loss")
+        test_loss, test_f1, test_macro_f1, test_accuracy, test_report = self.calc_loss(self.dataset_handler.tokenized_dataset["test"], print_metrics=True, desc="Test Loss")
         self.history["loss"]["train"].append(train_loss)
         self.history["loss"]["dev"].append(dev_loss)
         self.history["loss"]["test"].append(test_loss)
 
         self.history["metrics"]["micro_f1"]["dev"].append(dev_f1)
+        #self.history["metrics"]["macro_f1"]["dev"].append(dev_macro_f1)
         self.history["metrics"]["accuracy"]["dev"].append(dev_accuracy)
-        literal_key = '0'
-        non_literal_key = '1'
-        dev_f1_class_literal = dev_report_dict[literal_key]['f1-score']
-        dev_f1_class_non_literal = dev_report_dict[non_literal_key]['f1-score']
-        self.history["metrics"]["f1"]["dev"].append((dev_f1_class_literal, dev_f1_class_non_literal))
+        # self.history["metrics"]["report"]["dev"].append(dev_report)
 
         self.history["metrics"]["micro_f1"]["test"].append(test_f1)
+        #self.history["metrics"]["macro_f1"]["test"].append(test_macro_f1)
         self.history["metrics"]["accuracy"]["test"].append(test_accuracy)
-        self.history["metrics"]["report"]["test"].append(test_report)
-        test_f1_class_literal = test_report_dict[literal_key]['f1-score']
-        test_f1_class_non_literal = test_report_dict[non_literal_key]['f1-score']
-        self.history["metrics"]["f1"]["test"].append((test_f1_class_literal, test_f1_class_non_literal))
-
+        # self.history["metrics"]["report"]["test"].append(test_report)
 
         self.history["layers_weights"].append(torch.nn.functional.softmax(self.edge_probe_model.weighing_params).tolist())
         print('[%d] loss: %.4f, val_loss: %.4f, test_loss: %.4f' % (epoch, self.history["loss"]["train"][-1], self.history["loss"]["dev"][-1], self.history["loss"]["test"][-1]))
 
     def draw_weights(self, epoch=0):
         if(epoch % 1 == 0):
+            # w = self.edge_probe_model.weighing_params.tolist()
             w = torch.nn.functional.softmax(self.edge_probe_model.weighing_params).cpu().detach().numpy()
             print(w)
+            # print(self.history)
             plt.bar(np.arange(len(w), dtype=int), w)
             plt.ylabel('Weight')
             plt.xlabel('Layer');
@@ -1378,6 +1366,8 @@ class Edge_probe_trainer(Trainer):
         print(preds[0:9])
         preds = preds.cpu().argmax(-1)
         y_true = np.array(tokenized_dataset["one_hot_label"]).argmax(-1)
+        # print(preds[0:9])
+        # print(y_true[row_idx])
         if "glove" in model_checkpoint:
             text = tokenized_dataset[row_idx]["text"]
         else:
@@ -1411,4 +1401,4 @@ print("Dataset:", my_dataset_info.dataset_name)
 print(f"Batch Size: {BATCH_SIZE}")
 a = my_edge_probe_trainer.edge_probe_model.summary(do_print=True)
 
-my_edge_probe_trainer.train(batch_size = BATCH_SIZE, epochs=35)
+my_edge_probe_trainer.train(batch_size = BATCH_SIZE, epochs=30)
