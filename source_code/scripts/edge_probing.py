@@ -197,29 +197,29 @@ class Dataset_handler:
             self.json_to_dataset('./edge-probing-datasets/toxicity/jigsaw_bias/test100.json', data_type="test", fraction = test_frac)
         elif dataset_info.dataset_name == "vua_verb":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/vua_verb/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/vua_verb/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/vua_verb/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_verb/train.csv', data_type="train", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_verb/dev.csv', data_type="dev", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_verb/test.csv', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "vua_pos":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/vua_pos/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/vua_pos/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/vua_pos/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_pos/train.csv', data_type="train", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_pos/dev.csv', data_type="dev", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/vua_pos/test.csv', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "trofi":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/trofi/train.csv', data_type="train", fraction = frac, keep_order=False)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/trofi/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/trofi/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/train.csv', data_type="train", fraction = frac, keep_order=False)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/dev.csv', data_type="dev", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/test.csv', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "trofi_nospan":
             frac = 1
-            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/train.json', data_type="train", fraction = frac, keep_order=False, to_sentence_span=True)
-            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/test.json', data_type="dev", fraction = 0.01, to_sentence_span=True)
-            self.json_to_dataset('./edge-probing-datasets/metaphor/trofi/test.json', data_type="test", fraction = frac, to_sentence_span=True)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/train.json', data_type="train", fraction = frac, keep_order=False, to_sentence_span=True)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/test.json', data_type="dev", fraction = 0.01, to_sentence_span=True)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/trofi/test.json', data_type="test", fraction = frac, to_sentence_span=True)
         elif dataset_info.dataset_name == "lcc":
             frac = 1
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/lcc/en/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/lcc/en/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/lcc/en/test.csv', data_type="test", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/en/train.csv', data_type="train", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/en/dev.csv', data_type="dev", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/en/test.csv', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_src_concept":
             frac = 1
             self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/en/en_train10_src_concept_current.json', data_type="train", fraction = frac, ignore_classes = self.dataset_info.ignore_classes)
@@ -242,9 +242,9 @@ class Dataset_handler:
             self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/es/es_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_ru":
             frac = 1
-            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_train10_current.json', data_type="train", fraction = frac)
-            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="dev", fraction = 0.01)
-            self.json_to_dataset('./edge-probing-datasets/metaphor/lcc/ru/ru_test10_current.json', data_type="test", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/ru/ru_train10_current.json', data_type="train", fraction = frac)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/ru/ru_test10_current.json', data_type="dev", fraction = 0.01)
+            self.json_to_dataset('/content/Metaphors_in_PLMs/data/lcc/ru/ru_test10_current.json', data_type="test", fraction = frac)
         elif dataset_info.dataset_name == "lcc_en_en":
             frac = 1
             self.json_to_dataset('/content/drive/MyDrive/metaphor_datasets/multi_ling/lcc_en/train.csv', data_type="train", fraction = frac)
@@ -549,37 +549,43 @@ class Dataset_handler:
             target["label"] = "(" + target["label"] + "," + instance["targetConcept"] + ")"
         return target, instance
 
-    def json_to_df(self, csv_path, to_sentence_span=False):
-        pre_processes = [self.lcc_preprocess]
-        texts = list(dataset['text'])
-        labels = []
-        cache_ids = []
-        spans = []
-        for idx, text in enumerate(texts):
-            if self.cache_last_hashable_input != repr(text):
-                self.cache_last_hashable_input = repr(text)
-                self.global_cache_counter += 1
-            
-            cache_ids.append(self.global_cache_counter)
+    def json_to_df(self, json_path, to_sentence_span=False):
+        pre_processes = [self.lcc_preprocess, self.lcc_src_concept_preprocess, 
+                         self.hatexplain_fullspan_preprocess, 
+                         self.lcc_src_target_concept_preprocess,
+                         self.hatexplain_preprocess]
+        with open(json_path, encoding='utf-8') as file:
+            c = 0
+            data_list = list()
+            for line in file:
+                # print(c, end=",")
+                c += 1
+                instance = json.loads(line)
 
-            
-            if "lcc" in csv_path:
-                labels.append('1' if dataset['label'][idx]=='Metaphor' else '0')
-            if "trofi" in csv_path:
-                labels.append('1' if dataset['label'][idx]=='nonliteral' else '0')
-            if "vua" in csv_path:
-                labels.append('1' if dataset['label'][idx]==1 else '0')
+                if self.cache_last_hashable_input != repr(instance["text"]):
+                    self.cache_last_hashable_input = repr(instance["text"])
+                    self.global_cache_counter += 1
 
-            span_indices = dataset['span1'][idx]
-            spans.append([
-                                     int(span_indices.split(',')[0].split('[')[1]),
-                                     int(span_indices.split(',')[1].split()[0].split(']')[0])
-            ])
-        
-        dataset['label'] = labels
-        dataset['cache_id'] = cache_ids
-        dataset['span1'] = spans
-        return dataset
+                for target in instance["targets"]:
+                    for pre_process in pre_processes:
+                        target, instance = pre_process(target, instance)
+                    if target == None:
+                        break
+                    if self.dataset_info.num_of_spans == 2:
+                        data_list.append({"text": instance["text"],
+                                        "span1": target["span1"],
+                                        "span2": target["span2"],
+                                        "label": str(target["label"]),
+                                        "cache_id": self.global_cache_counter})
+                    elif self.dataset_info.num_of_spans == 1:
+                        if to_sentence_span:
+                            target["span1"][0] = 0
+                            target["span1"][-1] = len(instance["text"].split())
+                        data_list.append({"text": instance["text"],
+                                        "span1": target["span1"],
+                                        "label": str(target["label"]),
+                                        "cache_id": self.global_cache_counter})
+        return pd.DataFrame.from_dict(data_list)
 
 def tokenize_and_one_hot_glove(examples, **fn_kwargs):
     # tokenize and align spans
