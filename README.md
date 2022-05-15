@@ -1,7 +1,7 @@
 
-# Metaphors in Pre-Trained Language Models: Probing and Generalization Across Datasets and Languages
+# Metaphors in Pre-Trained Language Models: <br> Probing and Generalization Across Datasets and Languages
 
-_Accepted as a conference paper for ACL 2022_
+_Accepted as a conference paper at ACL 2022_
 
 [📝 Arxiv](https://arxiv.org/abs/2203.14139)
 [🎥 Video](https://www.youtube.com/watch?v=UKWFZSiP7OY)
