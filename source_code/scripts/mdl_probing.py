@@ -41,9 +41,8 @@ BATCH_SIZE = 32
 LEARNING_RATE = 5e-5
 DEVICE = 'cuda' if torch.cuda.is_available() else "cpu"
 
-CACHE_LEN = 500
-GPU_CACHE_LEN = 75  # 600
-RAM_CACHE_LEN = 150  # 2000
+GPU_CACHE_LEN = 200  # 600
+RAM_CACHE_LEN = 400  # 2000
 
 print(DEVICE)
 
@@ -67,9 +66,7 @@ dataset_info_dict = {
     "lcc_en_ru": Dataset_info("lcc_en_ru", num_of_spans=1),
     "lcc_es_fa": Dataset_info("lcc_es_fa", num_of_spans=1),
     "lcc_es_ru": Dataset_info("lcc_es_ru", num_of_spans=1),
-    "lcc_fa_ru": Dataset_info("lcc_fa_ru", num_of_spans=1),
-    "lcc_source": Dataset_info("lcc_source", num_of_spans=1),
-    "lcc_target": Dataset_info("lcc_target", num_of_spans=1)
+    "lcc_fa_ru": Dataset_info("lcc_fa_ru", num_of_spans=1)
 }
 
 model_checkpoint = sys.argv[1]
@@ -94,6 +91,9 @@ else:
     tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, add_prefix_space=True)
     tokenizer.padding_side = 'right'
     model = AutoModel.from_pretrained(model_checkpoint)
+
+# model.save_pretrained(model_checkpoint)
+# tokenizer.save_pretrained(model_checkpoint)
 
 class Utils:
     def one_hot(idx, length):
@@ -286,21 +286,14 @@ class Dataset_handler:
             self.json_to_dataset('./manual_dataset.json', data_type="train", fraction = frac, to_sentence_span=True)
             self.json_to_dataset('./manual_dataset.json', data_type="dev", fraction = frac, to_sentence_span=True)
             self.json_to_dataset('./manual_dataset.json', data_type="test", fraction = frac, to_sentence_span=True)
-        elif dataset_info.dataset_name == "lcc_source":
-            frac = 1
-            self.json_to_dataset('/content/source_data/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/source_data/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/source_data/test.csv', data_type="test", fraction = frac)
-        elif dataset_info.dataset_name == "lcc_target":
-            frac = 1
-            self.json_to_dataset('/content/target_data/train.csv', data_type="train", fraction = frac)
-            self.json_to_dataset('/content/target_data/dev.csv', data_type="dev", fraction = frac)
-            self.json_to_dataset('/content/target_data/test.csv', data_type="test", fraction = frac)
         else:
             throw("Error: Unkown dataset name!")
 
         print("⌛ Tokenizing Dataset and Adding One Hot Representation of Labels")
         self.tokenized_dataset = self.tokenize_input_and_one_hot_labels(self.dataset)
+        # self.tokenized_dataset = self.tokenize_dataset(self.dataset)
+        # print("⌛ Adding One Hot Representation of Labels")
+        # self.tokenized_dataset = self.one_hot_dataset_labels(self.tokenized_dataset)
         
 
     # Private:
@@ -380,6 +373,17 @@ class Dataset_handler:
         return target, instance
 
     def hatexplain_preprocess(self, target, instance):
+        # if self.dataset_info.dataset_name == "hatexplain":
+            # span_len = target["span1"][1] - target["span1"][0]
+            # if target["label"] == "Normal":
+            #     hatexplain_distribution_normal[span_len] += 1
+            # else:
+            #     hatexplain_distribution_toxic[span_len] += 1
+            
+            # instance["text"] = re.sub(r'[^A-Za-z0-9 ]+', '', instance["text"])  # Alphanumeric + Space
+            # if True or target["label"] == "Normal":
+            #     e = len(instance["text"].split())
+            #     target["span1"] = [0, e]
         return target, instance
 
     def hatexplain_fullspan_preprocess(self, target, instance):
@@ -392,37 +396,43 @@ class Dataset_handler:
             target["label"] = "(" + target["label"] + "," + instance["targetConcept"] + ")"
         return target, instance
 
-    def json_to_df(self, csv_path, to_sentence_span=False):
-        pre_processes = [self.lcc_preprocess]
-        dataset = pd.read_csv(csv_path)
-        texts = list(dataset['text'])
-        labels = []
-        cache_ids = []
-        spans = []
-        for idx, text in enumerate(texts):
-            if self.cache_last_hashable_input != repr(text):
-                self.cache_last_hashable_input = repr(text)
-                self.global_cache_counter += 1
-            
-            cache_ids.append(self.global_cache_counter)
+    def json_to_df(self, json_path, to_sentence_span=False):
+        pre_processes = [self.lcc_preprocess, self.lcc_src_concept_preprocess, 
+                         self.hatexplain_fullspan_preprocess, 
+                         self.lcc_src_target_concept_preprocess,
+                         self.hatexplain_preprocess]
+        with open(json_path, encoding='utf-8') as file:
+            c = 0
+            data_list = list()
+            for line in file:
+                # print(c, end=",")
+                c += 1
+                instance = json.loads(line)
 
-            
-            if "lcc" in csv_path:
-                labels.append('1' if dataset['label'][idx]=='Metaphor' else '0')
-            if "trofi" in csv_path:
-                labels.append('1' if dataset['label'][idx]=='nonliteral' else '0')
-            if "vua" in csv_path:
-                labels.append('1' if dataset['label'][idx]==1 else '0')
+                if self.cache_last_hashable_input != repr(instance["text"]):
+                    self.cache_last_hashable_input = repr(instance["text"])
+                    self.global_cache_counter += 1
 
-            span_indices = dataset['span1'][idx]
-            spans.append([
-                                     int(span_indices.split(',')[0].split('[')[1]),
-                                     int(span_indices.split(',')[1].split()[0].split(']')[0])
-            ])
-        
-        dataset['cache_id'] = cache_ids
-        dataset['span1'] = spans
-        return dataset
+                for target in instance["targets"]:
+                    for pre_process in pre_processes:
+                        target, instance = pre_process(target, instance)
+                    if target == None:
+                        break
+                    if self.dataset_info.num_of_spans == 2:
+                        data_list.append({"text": instance["text"],
+                                        "span1": target["span1"],
+                                        "span2": target["span2"],
+                                        "label": str(target["label"]),
+                                        "cache_id": self.global_cache_counter})
+                    elif self.dataset_info.num_of_spans == 1:
+                        if to_sentence_span:
+                            target["span1"][0] = 0
+                            target["span1"][-1] = len(instance["text"].split())
+                        data_list.append({"text": instance["text"],
+                                        "span1": target["span1"],
+                                        "label": str(target["label"]),
+                                        "cache_id": self.global_cache_counter})
+        return pd.DataFrame.from_dict(data_list)
 
 def tokenize_and_one_hot_glove(examples, **fn_kwargs):
     # tokenize and align spans
@@ -453,12 +463,14 @@ def tokenize_and_one_hot(examples, **fn_kwargs):
         tokenized_inputs = cached_tokenized_input[repr(examples["text"])]
     else:
         tokenized_inputs = thread_tokenizer(examples["text"].split(), is_split_into_words=True)  # Must be splitted for tokenizer to word_ids works fine. (test e-mail!)
+        # cached_tokenized_input = {}  # Free For RAM (Just Last One Cached)
         cached_tokenized_input[repr(examples["text"])] = tokenized_inputs
+    # tokenized_inputs = tokenizer(examples["text"], truncation=True, is_split_into_words=True, padding="max_length", max_length=210)
     def align_span(word_ids, start_word_id, end_word_id):
         span = [0, 0]
         if start_word_id not in word_ids:
             print("Warning: There is no", start_word_id, "in", word_ids, examples["text"].split(), examples["label"])
-            start_word_id += 1
+            start_word_id -= 1
         span[0] = word_ids.index(start_word_id)  # First occurance
         if end_word_id - 1 not in word_ids[::-1]:
             print("Warning: There is no", end_word_id - 1, "in", word_ids, examples["text"].split(), examples["label"])
@@ -466,10 +478,16 @@ def tokenize_and_one_hot(examples, **fn_kwargs):
         span[1] = len(word_ids) - 1 - word_ids[::-1].index(end_word_id - 1) + 1  # Last occurance (+1 for open range)
         return span
 
+    # tokenized_inputs["span1"] = [0, 0]
+    # tokenized_inputs["span1"][0] = word_ids.index(examples["span1"][0])  # First occurance
+    # tokenized_inputs["span1"][1] = len(word_ids) - 1 - word_ids[::-1].index(examples["span1"][1] - 1) + 1  # Last occurance (+1 for open range)
     word_ids = tokenized_inputs.word_ids()
     tokenized_inputs["span1"] = align_span(word_ids, examples["span1"][0], examples["span1"][1])
     tokenized_inputs["span1_len"] = tokenized_inputs["span1"][1] - tokenized_inputs["span1"][0]
     if num_of_spans == 2:
+        # tokenized_inputs["span2"] = [0, 0]
+        # tokenized_inputs["span2"][0] = word_ids.index(examples["span2"][0])  # First occurance
+        # tokenized_inputs["span2"][1] = len(word_ids) - 1 - word_ids[::-1].index(examples["span2"][1] - 1) + 1  # Last occurance
         tokenized_inputs["span2"] = align_span(word_ids, examples["span2"][0], examples["span2"][1])
         tokenized_inputs["span2_len"] = tokenized_inputs["span2"][1] - tokenized_inputs["span2"][0]
     # One hot
@@ -542,6 +560,12 @@ class MaxSpanRepr(SpanRepr, nn.Module):
     """Class implementing the max-pool span representation."""
 
     def forward(self, spans, attention_mask):
+        # TODO: Vectorize this
+        # for i in range(len(attention_mask)):
+        #     for j in range(len(attention_mask[i])):
+        #         if attention_mask[i][j] == 0:
+        #             spans[i, :, j, :] = -1e10
+
         span_masks_shape = attention_mask.shape
         span_masks = attention_mask.reshape(
             span_masks_shape[0],
@@ -552,6 +576,7 @@ class MaxSpanRepr(SpanRepr, nn.Module):
         attention_spans = spans * span_masks - 1e10 * (1 - span_masks)
 
         max_span_repr, max_idxs = torch.max(attention_spans, dim=-2)
+        # print(max_span_repr.shape)
         return max_span_repr
 
 class AttnSpanRepr(SpanRepr, nn.Module):
@@ -563,9 +588,14 @@ class AttnSpanRepr(SpanRepr, nn.Module):
         """
         super(AttnSpanRepr, self).__init__(input_dim, use_proj=use_proj, proj_dim=proj_dim)
         self.use_endpoints = use_endpoints
+        # input_dim is embedding_dim or proj dim
+        # print("input_dim", input_dim)
         self.attention_params = nn.Linear(input_dim, 1)  # Learn a weight for each token: z(k)i = W(k)att e(k)i
         self.last_attention_wts = None
-        
+        # Initialize weight to zero weight
+        # self.attention_params.weight.data.fill_(0)
+        # self.attention_params.bias.data.fill_(0)
+
     def forward(self, spans, attention_mask):
         """ 
         input:
@@ -574,6 +604,18 @@ class AttnSpanRepr(SpanRepr, nn.Module):
         returns:
             [32, 13, 256]
         """
+        # if self.use_proj:
+        #     encoded_input = self.proj(encoded_input)
+
+        # span_mask = get_span_mask(start_ids, end_ids, encoded_input.shape[1])
+        # attn_mask = torch.zeros(spans.shape, device=DEVICE)
+        # print(datetime.datetime.now().time(), "a1")
+        # print(attention_mask.shape)
+        # for i in range(len(attention_mask)):
+        #     for j in range(len(attention_mask[i])):
+        #         if attention_mask[i][j] == 0:
+        #             attn_mask[i, :, j, :] = -1e10
+
         span_masks_shape = attention_mask.shape
         span_masks = attention_mask.reshape(
             span_masks_shape[0],
@@ -583,12 +625,32 @@ class AttnSpanRepr(SpanRepr, nn.Module):
         ).expand_as(spans)
         attn_mask = - 1e10 * (1 - span_masks)
         
+        # print(datetime.datetime.now().time(), "a2")
+
+        # attn_mask = (1 - span_mask) * (-1e10)
         attn_logits = self.attention_params(spans) + attn_mask  # Decreasing the attention of padded spans by -1e10
         attention_wts = nn.functional.softmax(attn_logits, dim=-2)
         attention_term = torch.sum(attention_wts * spans, dim=-2)
 
         self.last_attention_wts = attention_wts   # Save for later analysis
         
+        # if self.use_endpoints:
+        #     batch_size = encoded_input.shape[0]
+        #     h_start = encoded_input[torch.arange(batch_size), start_ids, :]
+        #     h_end = encoded_input[torch.arange(batch_size), end_ids, :]
+        #     return torch.cat([h_start, h_end, attention_term], dim=1)
+        # else:
+        #     return attention_term
+
+        # print(spans.shape, attn_mask.shape)
+        # print("attn_mask", attn_mask.shape)
+        # print(attn_mask[sidx, :, :, 0:2])
+        # print("attn_logits", attn_logits.shape)
+        # print(attn_logits[sidx])
+        # print("attention_wts", attention_wts.shape)
+        # print(attention_wts[sidx, :, :, 0:2])
+        # print("attention_term", attention_term.shape)
+        # print(attention_term[sidx, :, 0:2])
         return attention_term.float()
 
 def get_span_module(input_dim, method="max", use_proj=False, proj_dim=256):
@@ -633,6 +695,7 @@ class Edge_probe_model(nn.Module):
         ## Projection
         if use_proj:
             # Apply a projection layer to output of pretrained models
+            # print(embedding_dim, num_layers, proj_dim)
             self.proj1 = nn.Linear(embedding_dim, proj_dim)
             if self.num_of_spans == 2:
                 self.proj2 = nn.Linear(embedding_dim, proj_dim)
@@ -669,6 +732,7 @@ class Edge_probe_model(nn.Module):
         if self.num_of_spans == 2:
             span2_reprs = spans_torch_dict["span2"]
             span2_attention_mask = spans_torch_dict["span2_attention_mask"]
+        # print(span1_reprs.shape)
         
         ## Projection
         if self.use_proj:
@@ -681,6 +745,12 @@ class Edge_probe_model(nn.Module):
         if self.num_of_spans == 2:
             pooled_span2 = self.span2_pooling_net(span2_reprs, span2_attention_mask)
 
+        # print(my_dataset_handler.tokenized_dataset["train"][0])
+        # print("SPAN1", span1_reprs[2, :, :, 0:5])
+        # print("SPAN2", span2_reprs[2, :, :, 0:5])
+        # print("MAX1", pooled_span1[2, :, 0:5])
+        # print("MAX2", pooled_span2[2, :, 0:5])
+        # raise "E"
         if self.normalize_layers:
             pooled_span1 = torch.nn.functional.normalize(pooled_span1, dim=-1)
             if self.num_of_spans == 2:
@@ -690,12 +760,17 @@ class Edge_probe_model(nn.Module):
             output = torch.cat((pooled_span1, pooled_span2), dim=-1)
         elif self.num_of_spans == 1:
             output = pooled_span1
-        
+        # print(output.shape)  # torch.Size([32, 13, 512])
+
         ## Mixing Weights
         wtd_encoded_repr = 0
         soft_weight = nn.functional.softmax(self.weighing_params, dim=0)
         for i in range(self.num_layers):
+            # print(i, output[:, i, :].shape, torch.norm(output[:, i, :]), torch.norm(s1))
+            # print(output[:, i, :][0, 0:10])
+            # print(s1[0, 0:10])
             wtd_encoded_repr += soft_weight[i] * output[:, i, :]
+        # wtd_encoded_repr += soft_weight[-1] * encoded_layers[:, -1, :]
         output = wtd_encoded_repr
 
         ## Classification
@@ -715,7 +790,11 @@ class Edge_probe_model(nn.Module):
         if do_print:
             print(summary_str)
         return summary_str
-        
+        # print("Total Parameters:    ", pytorch_total_params)
+        # print("Trainable Parameters:", pytorch_total_params_trainable)
+        # print("Pool Method:", self.pool_method)
+        # print("Projection:", self.use_proj, self.proj_dim)
+
 gpu_cache = dict()
 ram_cache = dict()
 class Trainer(ABC):
@@ -730,6 +809,7 @@ class Trainer(ABC):
         return new_dict
 
     def prepare_batch_data(self, tokenized_dataset, start_idx, end_idx, pad=False, cache_prefix=None):
+        # self.vprint("Extracting From Model")
         if cache_prefix is not None:
             cache_id = f"{cache_prefix}{start_idx}-{end_idx}"
             if cache_id in gpu_cache:
@@ -738,6 +818,7 @@ class Trainer(ABC):
                 return self.span_dict_to_device(ram_cache[cache_id], "cuda")
 
         span_representations_dict = self.extract_embeddings(tokenized_dataset, start_idx, end_idx, pad=True)
+        # self.vprint("To Device")
         span1_torch = torch.stack(span_representations_dict["span1"]).float().to(self.MLP_device)  # (batch_size, #layers, max_span_len, embd_dim)
         span1_attention_mask_torch = torch.stack(span_representations_dict["span1_attention_mask"])
         one_hot_labels_torch = torch.tensor(np.array(span_representations_dict["one_hot_label"]))
@@ -771,6 +852,8 @@ class Trainer(ABC):
         num_layers = span1_torch[0].shape[0]
         span_len = span1_torch[0].shape[1]
         embedding_dim = span1_torch[0].shape[2]
+        # if self.verbose:
+        #     display(pd.DataFrame(span_representations_dict))
         return num_layers, span_len, embedding_dim, len(self.dataset_handler.labels_list)
 
     def pad_span(self, span_repr, max_len):
@@ -785,10 +868,17 @@ class Trainer(ABC):
         num_layers = shape[0]
         span_original_len = shape[1]
         embedding_dim = shape[2]
+        # padded_span_repr = np.zeros((num_layers, max_len, embedding_dim))
+        # if span_original_len > max_len:
+        #     raise Exception(f"Error: {span_original_len} is more than max_span_len {max_len}\n{span_repr.shape}")
+
+        # attention_mask = torch.tensor(np.array([1] * span_original_len + [0] * (max_len - span_original_len)), dtype=torch.int8, device=self.device)
         attention_mask = torch.ones(max_len, dtype=torch.int8, device=self.device)
         attention_mask[span_original_len:] = 0
 
         padded_span_repr = torch.cat((span_repr, torch.zeros((num_layers, max_len - span_original_len, embedding_dim), device=self.device)), axis=1)
+        # assert attention_mask.shape == (max_len, ), f"{attention_mask}, {attention_mask.shape} != ({max_len}, )"
+        # assert padded_span_repr.shape == (num_layers, max_len, embedding_dim)
         return padded_span_repr, attention_mask
 
     def init_span_dict(self, num_of_spans, pad):
@@ -807,12 +897,14 @@ class Trainer(ABC):
         embedding_dim = word_embedding.word_vectors.shape[-1]
         span_len = span_end - span_start
         hidden_states = torch.zeros(1, span_len, embedding_dim, device=self.device)  #(layers, span_len, embedding_dim)
+        # print(text[0:3])
         for i in range(span_len):
             word = text[span_start + i]
             if word in word_embedding.dictionary:
                 hidden_states[0, i, :] = torch.tensor(word_embedding.word_vectors[word_embedding.dictionary[word]], device=self.device)
             else:
                 pass
+                # print("UNKONW WORD:", word)
         return hidden_states
 
     def extract_elmo(self, tokenized_dataset, idx, span_start, span_end):
@@ -822,11 +914,18 @@ class Trainer(ABC):
 
 
     def extract_batch(self, tokenized_dataset, idx, unique_batch_size=32):
+        # if "glove" in model_checkpoint:
+        #     return extract_batch_glove(tokenized_dataset, idx, unique_batch_size)
+        # if "elmo" in model_checkpoint:
+        #     return extract_batch_elmo(tokenized_dataset, idx, unique_batch_size)
+
+        # print(idx)
         self.vprint("e1")
         dataset_len = len(tokenized_dataset)
         unique_texts_in_batch = []
         i = idx
         while len(unique_texts_in_batch) < unique_batch_size and i < dataset_len:
+            # print(i)
             text = tokenized_dataset[i]["text"]
             if not text in unique_texts_in_batch:
                 unique_texts_in_batch.append(text)
@@ -838,12 +937,15 @@ class Trainer(ABC):
                 outputs = self.language_model(input_ids=tokenized_batch.input_ids, decoder_input_ids=tokenized_batch.input_ids, output_hidden_states=True)
             else:
                 outputs = self.language_model(**tokenized_batch)
+        # torch.cuda.synchronize()
+        # current_hidden_states = np.asarray([val.detach().cpu().numpy() for val in outputs.hidden_states])
         if SEQ2SEQ_MODEL:
             encoder_hidden_states = torch.stack([val.detach() for val in outputs.encoder_hidden_states])
             decoder_hidden_states = torch.stack([val.detach() for val in outputs.decoder_hidden_states])
             current_hidden_states = torch.cat((encoder_hidden_states, decoder_hidden_states), dim=0)  # concat from layers
         else:
             current_hidden_states = torch.stack([val.detach() for val in outputs.hidden_states])
+        # self.vprint(current_hidden_states.shape)  # (13, 16, 34, 768)
         
         extracted_batch_embeddings = {}
         for i, unique_text in enumerate(unique_texts_in_batch):
@@ -874,6 +976,7 @@ class Trainer(ABC):
             max_span_len_in_batch = max(max(tokenized_dataset[start_idx:end_idx]["span1_len"]), max(tokenized_dataset[start_idx:end_idx]["span2_len"]))
         elif num_of_spans == 1:
             max_span_len_in_batch = max(tokenized_dataset[start_idx:end_idx]["span1_len"])
+        # print("max_span_len_in_batch", max_span_len_in_batch)
         
 
         span_repr = self.init_span_dict(num_of_spans, pad)
@@ -893,8 +996,16 @@ class Trainer(ABC):
                 else:
                     if hashable_input not in self.extracted_batch_embeddings:
                         self.extracted_batch_embeddings = self.extract_batch(tokenized_dataset, i)
+                        # if len(self.cached_embeddings) < CACHE_LEN:
+                        #     for key, value in self.extracted_batch_embeddings.items():
+                        #         self.cached_embeddings[key] = value
+                        #     print(f"Cached {len(self.cached_embeddings)}")
                     self.current_hidden_states = self.extracted_batch_embeddings[hashable_input]
                 
+                # if hashable_input not in self.extracted_batch_embeddings:
+                #     self.extracted_batch_embeddings = self.extract_batch(tokenized_dataset, i)    
+                # self.current_hidden_states = self.extracted_batch_embeddings[hashable_input]
+
                 span1_hidden_states = self.current_hidden_states[:, row["span1"][0]:row["span1"][1], :]  # (#layer, span_len, embd_dim)
             
             if pad:
@@ -925,10 +1036,10 @@ class Trainer(ABC):
 
     def save_history(self, history_dict, mdl=False):
         if mdl == True:
-            prefix = "mdl/mdl_jsons_"
+            prefix = "mdl/mdl_results_"
             history_dict = {"mdl_history": history_dict}
         else:
-            prefix = "edge_probing_results_jsons/"
+            prefix = "edge_probing_results/"
         file_name = prefix + model_checkpoint + "_" + self.dataset_handler.dataset_info.dataset_name + "_" + str(SEED)
         history_dict["Model"] = model_checkpoint,
         history_dict["Batch Size"] = BATCH_SIZE,
@@ -947,6 +1058,9 @@ class Trainer(ABC):
         Path(file_name).mkdir(parents=True, exist_ok=True)
         with open(f"{file_name}.json", "w") as json_file:
             json.dump(history_dict, json_file, indent=4)
+        # with open(f"{file_name}.pkl", "wb") as pkl_file:
+        #     pickle.dump(history_dict, pkl_file)
+
 
 """# MDL Probe Trainer"""
 
@@ -1019,6 +1133,7 @@ class MDL_probe_trainer(Trainer):
         num_labels = len(self.dataset_handler.labels_list)
 
         print(self.dataset_handler.tokenized_dataset)
+        # concatenated_dataset = datasets.concatenate_datasets([temp_dataset_train, temp_dataset_test])
         concatenated_dataset = temp_dataset_train
         print(concatenated_dataset)
 
@@ -1045,13 +1160,18 @@ class MDL_probe_trainer(Trainer):
                 for edge_probe_model in self.edge_probe_models:
                     edge_probe_model.train()
                 for i in tqdm(range(0, train_len, batch_size), desc=f"[Epoch {epoch + 1}/{epochs}]"):
+                    # if int(i / batch_size) % 1000 == 0:
+                    #     print("memory:", psutil.virtual_memory().percent)
                     self.vprint("Start")
                     step = batch_size
                     if i + batch_size > train_len:
                         step = train_len - i
+                    # print(f"WWW[{i}, {i+step})")
                     
                     self.vprint("Extracting")
+                    # self.vprint("prepare")
                     spans_torch_dict = self.prepare_batch_data(train_dataset, i, i + step, pad=True, cache_prefix="mdl")
+                    # print(spans_torch_dict["span1"].shape, spans_torch_dict["span1_attention_mask"].shape)
                     labels = spans_torch_dict["one_hot_labels"]
                     labels = labels.argmax(dim=1).long()
                     labels = labels.to(self.device)
@@ -1060,6 +1180,7 @@ class MDL_probe_trainer(Trainer):
                         edge_probe_model.optimizer.zero_grad()
             
                         self.vprint("dict")
+                        # print(spans_torch_dict["span1"].shape) # torch.Size([32, 13, 9, 768])
                         if self.num_of_spans == 2:
                             span_torch_dict = {"span1": spans_torch_dict["span1"][:, epm_idx:epm_idx+1, :, :], 
                                             "span1_attention_mask": spans_torch_dict["span1_attention_mask"],
@@ -1076,12 +1197,14 @@ class MDL_probe_trainer(Trainer):
                         self.vprint("Loss")
                         loss = edge_probe_model.training_criterion(outputs.to(self.device), labels)
                         loss.backward()
+                        # torch.nn.utils.clip_grad_norm_(edge_probe_model.parameters(), 5.0)
                         edge_probe_model.optimizer.step()
             
                         running_loss += loss.item()
                         steps += 1
                     self.vprint("Done")
-                    
+                    # print(f"loss: {running_loss / steps}")
+
                 
                 if epoch == epochs - 1 or self.check_early_stop(portion_idx):
                     self.update_history(epoch + 1, portion_idx, train_dataset, test_dataset, train_loss = running_loss / steps, last_epoch_of_portion=True)
@@ -1110,6 +1233,8 @@ class MDL_probe_trainer(Trainer):
             preds = [[None] for _ in range(self.num_layers)]
             micro_f1 = [[None] for _ in range(self.num_layers)]
             for i in tqdm(range(0, dataset_len, batch_size), desc=desc):
+                # if int(i / batch_size) % 100 == 0:
+                #     print("memory:", psutil.virtual_memory().percent, gc.collect(), psutil.virtual_memory().percent)
                 step = batch_size
                 if i + batch_size > dataset_len:
                     step = dataset_len - i
@@ -1145,6 +1270,9 @@ class MDL_probe_trainer(Trainer):
             micro_f1[idx] = f1_score(y_true, pred, average='micro')
         
         if print_metrics:
+            # labels_list = self.dataset_handler.labels_list
+            # if not just_micro:
+            #     print(classification_report(y_true, preds, target_names=labels_list, labels=range(len(labels_list))))
             print("MICRO F1:", micro_f1)
         return running_loss / steps, micro_f1, mdl_loss
 
@@ -1153,6 +1281,7 @@ class MDL_probe_trainer(Trainer):
         self.history[portion_idx]["loss"]["train"].append(train_loss)
         self.history[portion_idx]["loss"]["test"].append(test_loss) # Average of all layers
         self.history[portion_idx]["metrics"]["micro_f1"]["test"].append(test_f1)
+        # self.history["layers_weights"].append(self.edge_probe_model.weighing_params.tolist())
         
         # MDL Metric #
         num_examples = len(train_dataset) + len(test_dataset)
@@ -1173,6 +1302,7 @@ class MDL_probe_trainer(Trainer):
             min_mdl_loss_in_batch = np_mdl.min(axis=0)
             print(min_mdl_loss_in_batch.shape, np.array(test_mdl_loss).shape)
 
+            # online_codelength += min_mdl_loss_in_batch
             online_codelength += min_mdl_loss_in_batch / np.log(2)
             compression = uniform_codelength / online_codelength
             self.history[portion_idx]["metrics"]["online_codelength"].append(list(online_codelength))
@@ -1183,16 +1313,19 @@ class MDL_probe_trainer(Trainer):
         print('[%d] loss:' % (epoch))
         print("Train Loss:", self.history[portion_idx]["loss"]["train"][-1])
         print("Test Loss:", self.history[portion_idx]["loss"]["test"][-1])
+        # print("MDL Loss:", self.history[portion_idx]["loss"]["mdl"][-1])
 
 
     def draw_weights(self, epoch, portion_idx, comprehensive=False):
         w = self.history[portion_idx]["metrics"]["micro_f1"]["test"][-1]
+        # print(self.history)
         plt.bar(np.arange(len(w), dtype=int), w)
         plt.ylabel('micro f1')
         plt.xlabel('Layer');
         plt.show()
 
         if comprehensive:
+            # print(self.history)
             w = self.history[portion_idx]["metrics"]["online_codelength"][-1]
             plt.bar(np.arange(len(w), dtype=int), w, color="magenta")
             plt.ylabel('Online Codelength')
